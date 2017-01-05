@@ -11,6 +11,9 @@ users = {}
 users_to_notify = {}
 ous_to_check = [ENV['OU_1'], ENV['OU_2'], ENV['OU_3']]
 
+# How many days from password change does a password expire?
+expire_after = ENV['EXPIRE_AFTER'].to_i
+
 ## AD
 # Initialize connection to AD
 ldap = Net::LDAP.new :host => ENV['AD_HOST'],
@@ -31,7 +34,8 @@ ous_to_check.each do |ou|
   ldap.search(:base => treebase, :filter => filter) do |entry|
     attributes = {}
     attributes[:mail] = entry.mail.join.downcase
-    attributes[:PwdExpireTime] = Time.at(((entry.PwdLastSet.join.to_i)/10000000) - 11644473600) + 90.days
+    # Convert Windows NT Time to UNIX epoch time and add number of days until expiry to find expire time
+    attributes[:PwdExpireTime] = Time.at(((entry.PwdLastSet.join.to_i)/10000000) - 11644473600) + expire_after.days
     users[entry.name.join] = attributes
   end
 end
@@ -41,10 +45,11 @@ puts "Found users: #{users}"
 
 # Determine users with passwords about to expire
 users.each do |user, attr|
+  # Only include users with passwords that will expire in 5 days and up to 1 day past expiry
   if (-5..1).include?((Time.now - attr[:PwdExpireTime])/86400)
     users_to_notify[attr[:mail]] = {:PwdExpireTime => attr[:PwdExpireTime].strftime("%A, %d %b %Y %l:%M %p")}
   else
-    puts "Will not notify #{user}, password expires is greater than 5 days: #{attr[:PwdExpireTime]}"
+    puts "Will not notify #{user}, password expires in greater than 5 days: #{attr[:PwdExpireTime]}"
   end
 end
 
