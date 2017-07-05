@@ -85,8 +85,8 @@ if !users_to_notify.empty?
       client.chat_postMessage(channel: "@#{attr[:slack_name]}", text: "Your Active Directory [e-mail] password will expire in less than 5 days at: #{attr[:PwdExpireTime]}. Reset your password by going to: #{ENV['PW_RESET_URL']}", as_user: true)
       puts "Notified #{user} with slack name: #{attr[:slack_name]} that their password will expire at #{attr[:PwdExpireTime]}"
     else
-      client.chat_postMessage(channel: "@#{ENV['BACKUP_SLACK_USER']}", text: "The AD password for #{user} will expire in less than 5 days at: #{attr[:PwdExpireTime]}. They do not have a slack account. Please notify them to reset their password by going to: #{ENV['PW_RESET_URL']}", as_user: true)
-      puts "#{user} does not have a slack name, Sent a message to #{ENV['BACKUP_SLACK_USER']}"
+      client.chat_postMessage(channel: "##{ENV['BACKUP_SLACK_GROUP']}", text: "The AD password for #{user} will expire in less than 5 days at: #{attr[:PwdExpireTime]}. They do not have a slack account. Please notify them to reset their password by going to: #{ENV['PW_RESET_URL']}", as_user: true)
+      puts "#{user} does not have a slack name, Sent a message to #{ENV['BACKUP_SLACK_GROUP']}"
     end
   end
   # Notify channel of users with missing mail attribute in AD
