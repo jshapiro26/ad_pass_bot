@@ -26,6 +26,9 @@ ldap = Net::LDAP.new :host => ENV['AD_HOST'],
     :password => ENV['AD_PASSWORD']
   }
 
+# Initialize array for users with no mail attribute set in Active Directory
+bad_user_entries = []
+
 # Find all users and relevant attributes
 ous_to_check.each do |ou|
   filter = Net::LDAP::Filter.eq("ObjectClass", "user")
@@ -33,7 +36,16 @@ ous_to_check.each do |ou|
 
   ldap.search(:base => treebase, :filter => filter) do |entry|
     attributes = {}
-    attributes[:mail] = entry.mail.join.downcase
+    begin
+      attributes[:mail] = entry.mail.join.downcase
+    rescue NoMethodError => e
+      if e.to_s.include? "mail"
+        bad_user_entries << entry.name
+        puts "The user #{entry.name} had no mail attribute assigned"
+      else
+        puts "Error Raised: #{e}"
+      end
+    end
     # Convert Windows NT Time to UNIX epoch time and add number of days until expiry to find expire time
     attributes[:PwdExpireTime] = Time.at(((entry.PwdLastSet.join.to_i)/10000000) - 11644473600) + expire_after.days
     users[entry.name.join] = attributes
@@ -76,5 +88,11 @@ if !users_to_notify.empty?
       client.chat_postMessage(channel: "@#{ENV['BACKUP_SLACK_USER']}", text: "The AD password for #{user} will expire in less than 5 days at: #{attr[:PwdExpireTime]}. They do not have a slack account. Please notify them to reset their password by going to: #{ENV['PW_RESET_URL']}", as_user: true)
       puts "#{user} does not have a slack name, Sent a message to #{ENV['BACKUP_SLACK_USER']}"
     end
+  end
+  # Notify channel of users with missing mail attribute in AD
+  if !bad_user_entries.empty?
+    list = bad_user_entries.to_s.gsub(/"|\[|\]/, '')
+    client.chat_postMessage(channel: "##{ENV["MISSING_ATTR_GROUP"]}", text: "The following user(s) do not have a mail attribute set in Active Directory: #{list}", as_user: true)
+    puts "Slack group notified of users with missing mail attribute in Active Directory"
   end
 end
