@@ -75,7 +75,7 @@ if !users_to_notify.empty?
   # Find Slack usernames and add to hash
   slack_users = client.users_list.to_hash
   slack_users["members"].each do |user|
-    if users_to_notify.include?(user["profile"]["email"])
+    if users_to_notify.include?(user["profile"]["email"].downcase)
       users_to_notify[user["profile"]["email"]][:slack_name] = user["name"]
     end
   end
